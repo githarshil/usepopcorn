@@ -1,28 +1,5 @@
 import { useEffect, useState } from "react";
-
-const tempMovieData = [
-  {
-    imdbID: "tt1375666",
-    Title: "Inception",
-    Year: "2010",
-    Poster:
-      "https://m.media-amazon.com/images/M/MV5BMjAxMzY3NjcxNF5BMl5BanBnXkFtZTcwNTI5OTM0Mw@@._V1_SX300.jpg",
-  },
-  {
-    imdbID: "tt0133093",
-    Title: "The Matrix",
-    Year: "1999",
-    Poster:
-      "https://m.media-amazon.com/images/M/MV5BNzQzOTk3OTAtNDQ0Zi00ZTVkLWI0MTEtMDllZjNkYzNjNTc4L2ltYWdlXkEyXkFqcGdeQXVyNjU0OTQ0OTY@._V1_SX300.jpg",
-  },
-  {
-    imdbID: "tt6751668",
-    Title: "Parasite",
-    Year: "2019",
-    Poster:
-      "https://m.media-amazon.com/images/M/MV5BYWZjMjk3ZTItODQ2ZC00NTY5LWE0ZDYtZTI3MjcwN2Q5NTVkXkEyXkFqcGdeQXVyODk4OTc3MTY@._V1_SX300.jpg",
-  },
-];
+import Stars from "./stars";
 
 const tempWatchedData = [
   {
@@ -57,6 +34,14 @@ export default function App() {
   const [isloading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("don");
+  const [selectedID, setSelectedID] = useState(null);
+
+  function handleSelectMovie(id) {
+    setSelectedID(id);
+  }
+  function handleBack() {
+    setSelectedID(null);
+  }
   useEffect(
     function () {
       async function fetchMovies() {
@@ -68,6 +53,7 @@ export default function App() {
           );
           if (!res.ok) throw new Error("movie not found");
           const data = await res.json();
+          console.log(data);
           setMovies(data.Search || []);
         } catch (err) {
           setError(err.message);
@@ -90,12 +76,20 @@ export default function App() {
       <Main>
         <Listbox>
           {isloading && <Loader />}
-          {!isloading && !error && <Movieslist movies={movies} />}
+          {!isloading && !error && (
+            <Movieslist movies={movies} handleSelectMovie={handleSelectMovie} />
+          )}
           {error && <ErrorMessage message={error} />}
         </Listbox>
         <Listbox>
-          <Watchedbox watched={watched} />
-          <Watchedlist watched={watched} />
+          {selectedID ? (
+            <SelectedMovie selectedID={selectedID} handleBack={handleBack} />
+          ) : (
+            <>
+              <Watchedbox watched={watched} />
+              <Watchedlist watched={watched} />
+            </>
+          )}
         </Listbox>
       </Main>
     </>
@@ -137,11 +131,11 @@ function Search({ query, setQuery }) {
     />
   );
 }
-function Movieslist({ movies }) {
+function Movieslist({ movies, handleSelectMovie }) {
   return (
-    <ul className="list">
+    <ul className="list list-movies">
       {movies?.map((movie) => (
-        <li key={movie.imdbID}>
+        <li key={movie.imdbID} onClick={() => handleSelectMovie(movie.imdbID)}>
           <img src={movie.Poster} alt={`${movie.Title} poster`} />
           <h3>{movie.Title}</h3>
           <div>
@@ -220,6 +214,61 @@ function Watchedlist({ watched }) {
         </li>
       ))}
     </ul>
+  );
+}
+function SelectedMovie({ selectedID, handleBack }) {
+  const [movie, setMovie] = useState({});
+  const {
+    Title,
+    Poster,
+    Plot,
+    Director,
+    Actors,
+    Genre,
+    imdbRating,
+    Runtime,
+    Released,
+  } = movie;
+  useEffect(
+    function () {
+      async function selectMovie() {
+        const res = await fetch(
+          `http://www.omdbapi.com/?apikey=${KEY}&i=${selectedID}`,
+        );
+        const Movie = await res.json();
+        setMovie(Movie);
+      }
+      selectMovie();
+    },
+    [selectedID],
+  );
+  return (
+    <div className="details">
+      <header>
+        <button className="btn-back" onClick={handleBack}>
+          &larr;
+        </button>
+        <img src={Poster} alt={`Poster of ${Title}`} />
+        <div className="details-overview">
+          <h2>{Title}</h2>
+          <p>
+            {Released} · {Runtime}
+          </p>
+          <p>{Genre}</p>
+          <p>⭐ {imdbRating} IMDb rating</p>
+        </div>
+      </header>
+      <section>
+        <p>
+          <em>{Plot}</em>
+        </p>
+        <p>Starring: {Actors}</p>
+        <p>Directed by: {Director}</p>
+      </section>
+      <div className="rating">
+        <Stars maxrating={10} color="gold" size={24} defRating={0} />
+      </div>
+    </div>
   );
 }
 function Main({ children }) {

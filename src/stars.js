@@ -31,8 +31,8 @@ export default function Stars({
           />
         ))}
       </div>
-      <p style={textstyle}>{rating || ""}</p>
-      <button>+ Add to list</button>
+      {/* <p style={textstyle}>{rating || ""}</p> */}
+      {/* <button>+ Add to list</button> */}
     </div>
   );
 }
