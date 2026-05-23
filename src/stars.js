@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Stars({
   // default settings
@@ -6,9 +6,19 @@ export default function Stars({
   color = "#fcc419",
   size = 48,
   defRating = 0,
+  onSetRating = null,
 }) {
   const [rating, setRating] = useState(defRating);
   const [temprating, setTemprating] = useState(0);
+
+  useEffect(() => {
+    setRating(defRating);
+  }, [defRating]);
+
+  function handleRating(newRating) {
+    setRating(newRating);
+    if (onSetRating) onSetRating(newRating);
+  }
 
   const textstyle = {
     fontSize: `${size / 1.5}px`,
@@ -22,7 +32,7 @@ export default function Stars({
           <Star
             key={i}
             index={i}
-            onClick={() => setRating(i + 1)}
+            onClick={() => handleRating(i + 1)}
             full={temprating ? temprating >= i + 1 : rating >= i + 1}
             onMouseEnter={() => setTemprating(i + 1)}
             onMouseLeave={() => setTemprating(0)}

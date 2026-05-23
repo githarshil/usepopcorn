@@ -36,6 +36,10 @@ export default function App() {
   const [query, setQuery] = useState("don");
   const [selectedID, setSelectedID] = useState(null);
 
+  function handleAppWatched(movie) {
+    setWatched((watched) => [...watched, movie]);
+  }
+
   function handleSelectMovie(id) {
     setSelectedID(id);
   }
@@ -44,24 +48,30 @@ export default function App() {
   }
   useEffect(
     function () {
+      const controller = new AbortController();
       async function fetchMovies() {
         try {
           setLoading(true);
           setError("");
           const res = await fetch(
             `http://www.omdbapi.com/?apikey=${KEY}&s=${query}`,
+            { signal: controller.signal },
           );
           if (!res.ok) throw new Error("movie not found");
           const data = await res.json();
-          console.log(data);
           setMovies(data.Search || []);
         } catch (err) {
-          setError(err.message);
+          if (err.name !== "AbortError") {
+            setError(err.message);
+          }
         } finally {
           setLoading(false);
         }
       }
       fetchMovies();
+      return function () {
+        controller.abort();
+      };
     },
     [query],
   );
@@ -83,11 +93,15 @@ export default function App() {
         </Listbox>
         <Listbox>
           {selectedID ? (
-            <SelectedMovie selectedID={selectedID} handleBack={handleBack} />
+            <SelectedMovie
+              selectedID={selectedID}
+              handleBack={handleBack}
+              handleAdd={handleAppWatched}
+            />
           ) : (
             <>
               <Watchedbox watched={watched} />
-              <Watchedlist watched={watched} />
+              <Watchedlist watched={watched} selectedID={selectedID} />
             </>
           )}
         </Listbox>
@@ -190,7 +204,7 @@ function Watchedbox({ watched }) {
     </div>
   );
 }
-function Watchedlist({ watched }) {
+function Watchedlist({ watched, selectedID }) {
   return (
     <ul className="list">
       {watched.map((movie) => (
@@ -216,8 +230,9 @@ function Watchedlist({ watched }) {
     </ul>
   );
 }
-function SelectedMovie({ selectedID, handleBack }) {
+function SelectedMovie({ selectedID, handleBack, handleAdd }) {
   const [movie, setMovie] = useState({});
+  const [userRating, setUserRating] = useState(0);
   const {
     Title,
     Poster,
@@ -229,6 +244,42 @@ function SelectedMovie({ selectedID, handleBack }) {
     Runtime,
     Released,
   } = movie;
+  function handleAppWatched(movie) {
+    const newWatchedMovie = {
+      imdbID: movie.imdbID,
+      Title: movie.Title,
+      Poster: movie.Poster,
+      imdbRating: parseFloat(movie.imdbRating),
+      userRating: userRating,
+      runtime: parseInt(movie.Runtime),
+    };
+    handleAdd(newWatchedMovie);
+    handleBack();
+  }
+  useEffect(
+    function () {
+      if (!Title) return;
+      document.title = `🍿${Title}`;
+      return function () {
+        document.title = "usepopcorn";
+      };
+    },
+    [Title],
+  );
+  useEffect(
+    function () {
+      function handleKeyDown(e) {
+        if (e.code === "Escape") {
+          handleBack();
+        }
+      }
+      document.addEventListener("keydown", handleKeyDown);
+      return function () {
+        document.removeEventListener("keydown", handleKeyDown);
+      };
+    },
+    [handleBack],
+  );
   useEffect(
     function () {
       async function selectMovie() {
@@ -237,6 +288,7 @@ function SelectedMovie({ selectedID, handleBack }) {
         );
         const Movie = await res.json();
         setMovie(Movie);
+        setUserRating(0);
       }
       selectMovie();
     },
@@ -266,8 +318,25 @@ function SelectedMovie({ selectedID, handleBack }) {
         <p>Directed by: {Director}</p>
       </section>
       <div className="rating">
-        <Stars maxrating={10} color="gold" size={24} defRating={0} />
+        <Stars
+          maxrating={10}
+          color="gold"
+          size={24}
+          defRating={userRating}
+          onSetRating={setUserRating}
+        />
       </div>
+      {userRating > 0 && (
+        <button
+          className="btn-add"
+          onClick={() => {
+            handleAppWatched(movie);
+          }}
+        >
+          <span>+</span>
+          <span>Add to list</span>
+        </button>
+      )}
     </div>
   );
 }
