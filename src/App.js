@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Stars from "./stars";
+import { useMovies } from "./useMovies";
+import { useLocalStorage } from "./useLocalStorage";
 
 const tempWatchedData = [
   {
@@ -25,16 +27,14 @@ const tempWatchedData = [
 ];
 
 const average = (arr) =>
-  arr.reduce((acc, cur, i, arr) => acc + cur / arr.length, 0);
+  arr.length ? arr.reduce((acc, cur, i, arr) => acc + cur / arr.length, 0) : 0;
 const KEY = "5f96d9ca";
 
 export default function App() {
-  const [movies, setMovies] = useState();
-  const [watched, setWatched] = useState(tempWatchedData);
-  const [isloading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [query, setQuery] = useState("don");
   const [selectedID, setSelectedID] = useState(null);
+  const { movies, isloading, error } = useMovies(query);
+  const { watched, setWatched } = useLocalStorage([], "watched");
 
   function handleAppWatched(movie) {
     setWatched((watched) => [...watched, movie]);
@@ -46,35 +46,6 @@ export default function App() {
   function handleBack() {
     setSelectedID(null);
   }
-  useEffect(
-    function () {
-      const controller = new AbortController();
-      async function fetchMovies() {
-        try {
-          setLoading(true);
-          setError("");
-          const res = await fetch(
-            `http://www.omdbapi.com/?apikey=${KEY}&s=${query}`,
-            { signal: controller.signal },
-          );
-          if (!res.ok) throw new Error("movie not found");
-          const data = await res.json();
-          setMovies(data.Search || []);
-        } catch (err) {
-          if (err.name !== "AbortError") {
-            setError(err.message);
-          }
-        } finally {
-          setLoading(false);
-        }
-      }
-      fetchMovies();
-      return function () {
-        controller.abort();
-      };
-    },
-    [query],
-  );
 
   return (
     <>
@@ -135,6 +106,11 @@ function NumResults({ movies }) {
   );
 }
 function Search({ query, setQuery }) {
+  const ref = useRef(null);
+  useEffect(function () {
+    console.log(ref.current);
+    ref.current.focus();
+  }, []);
   return (
     <input
       className="search"
@@ -142,6 +118,7 @@ function Search({ query, setQuery }) {
       placeholder="Search movies..."
       value={query}
       onChange={(e) => setQuery(e.target.value)}
+      ref={ref}
     />
   );
 }
@@ -175,7 +152,7 @@ function Listbox({ children }) {
     </div>
   );
 }
-function Watchedbox({ watched }) {
+function Watchedbox({ watched = [] }) {
   const avgImdbRating = average(watched.map((movie) => movie.imdbRating));
   const avgUserRating = average(watched.map((movie) => movie.userRating));
   const avgRuntime = average(watched.map((movie) => movie.runtime));
@@ -204,7 +181,7 @@ function Watchedbox({ watched }) {
     </div>
   );
 }
-function Watchedlist({ watched, selectedID }) {
+function Watchedlist({ watched = [], selectedID }) {
   return (
     <ul className="list">
       {watched.map((movie) => (
